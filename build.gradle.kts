@@ -18,7 +18,7 @@ repositories {
 val vertxVersion = "4.5.10"
 val junitJupiterVersion = "5.9.1"
 
-val mainVerticleName = "com.lzag.starter.MainVerticle"
+val mainVerticleName = "com.lzag.ratelimiter.MainVerticle"
 val launcherClassName = "io.vertx.core.Launcher"
 
 val watchForChange = "src/**/*"
@@ -36,7 +36,10 @@ dependencies {
   implementation("io.vertx:vertx-shell")
   implementation("io.vertx:vertx-lang-kotlin")
   implementation("io.vertx:vertx-redis-client")
+  implementation("io.vertx:vertx-config")
+  implementation("io.vertx:vertx-config-yaml")
   implementation(kotlin("stdlib-jdk8"))
+  implementation("com.github.ben-manes.caffeine:caffeine:3.1.6")
   testImplementation("io.vertx:vertx-junit5")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
 }

@@ -1,4 +1,4 @@
-package com.lzag.starter
+package com.lzag.ratelimiter
 
 import io.vertx.core.Vertx
 import io.vertx.junit5.VertxExtension
