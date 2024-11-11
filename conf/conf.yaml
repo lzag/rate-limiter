@@ -1,1 +1,6 @@
-tokensPerMinute: 6000
+# tokenBucket, timestampBucket, leakyBucket, fixedWindow, slidingWindow
+rateLimiterType: "TIMESTAMP_BUCKET"
+
+tokensPerMinute: 6
+tokensPerSecond: 10
+concurrentRequests: 7

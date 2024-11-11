@@ -3,84 +3,55 @@ package com.lzag.ratelimiter
 import io.vertx.config.ConfigRetriever
 import io.vertx.config.ConfigRetrieverOptions
 import io.vertx.config.ConfigStoreOptions
-import io.vertx.core.AbstractVerticle
-import io.vertx.core.Promise
-import io.vertx.redis.client.Redis
-import io.vertx.redis.client.RedisAPI
-import java.nio.file.Files
-import java.nio.file.Paths
+import io.vertx.core.*
+import io.vertx.core.impl.logging.LoggerFactory
 
 class MainVerticle : AbstractVerticle() {
+  companion object {
+    private val logger = LoggerFactory.getLogger(MainVerticle::class.java)
+  }
 
   override fun start(startPromise: Promise<Void>) {
+
     val yamlStore = ConfigStoreOptions()
       .setType("file")
       .setFormat("yaml")
       .setConfig(io.vertx.core.json.JsonObject().put("path", "conf/conf.yaml"))
 
-    // Create the ConfigRetriever with the YAML store
-    val options = ConfigRetrieverOptions().addStore(yamlStore)
+    val options = ConfigRetrieverOptions().addStore(yamlStore).setScanPeriod(1000)
     val retriever = ConfigRetriever.create(vertx, options)
+    var httpVerticleId: String? = null
 
     retriever.listen { change ->
-      vertx.eventBus().publish("config.change", change.newConfiguration)
+      println("Processing configuration change")
+      if (httpVerticleId != null) {
+        logger.info("Undeploying Http Verticle " + httpVerticleId)
+        vertx.undeploy(httpVerticleId)
+          .compose {
+            vertx.deployVerticle(HttpVerticle::class.java, DeploymentOptions().setConfig(change.newConfiguration).setInstances(4))
+          }
+          .onSuccess {
+            httpVerticleId = it
+          }
+          .onFailure { err ->
+            println("Failed to undeploy verticle: ${err.message}")
+          }
+      }
     }
 
     retriever.config
-      .onSuccess { config ->
-        val tokensPerMinute = config.getInteger("tokensPerMinute")
-        println("tokensPerMinute: $tokensPerMinute")
-        val rateLimiter = RateLimiter()
-
-        val redis = Redis.createClient(vertx, "redis://localhost:6379")
-        val redisAPI = RedisAPI.api(redis)
-
-        // Load the Lua script from the resources directory
-        val luaScriptPath = Paths.get(javaClass.classLoader.getResource("valkey.bucket_refill.lua").toURI())
-        val luaScript = String(Files.readAllBytes(luaScriptPath))
-
-        // Load the script into Redis
-        redisAPI.script(listOf("LOAD", luaScript)) { loadRes ->
-          if (loadRes.succeeded()) {
-            val scriptSha = loadRes.result().toString()
-            println("Script SHA1: $scriptSha")
-
-            // Schedule the script to run every minute
-            vertx.setPeriodic(6000) {
-              redisAPI.evalsha(listOf(scriptSha, "0")) { evalRes ->
-                if (evalRes.succeeded()) {
-                  println("Script executed: ${evalRes.result()}")
-                } else {
-                  println("Failed to execute script: ${evalRes.cause()}")
-                }
-              }
-            }
-
-            vertx
-              .createHttpServer()
-              .requestHandler { req ->
-                if (!rateLimiter.allowRequest(req)) {
-                  // return not allowed
-                  req.response().setStatusCode(429).end("Too Many Requests")
-                } else {
-                  // make the actual API call
-                  req.response()
-                    .putHeader("content-type", "text/plain")
-                    .end("Request allowed")
-                }
-              }
-              .listen(8888).onComplete { http ->
-                if (http.succeeded()) {
-                  startPromise.complete()
-                  println("HTTP server started on port 8888")
-                } else {
-                  startPromise.fail(http.cause())
-                }
-              }
-          } else {
-            startPromise.fail(loadRes.cause())
+      .compose { config ->
+        vertx.deployVerticle(HttpVerticle::class.java, DeploymentOptions().setConfig(config).setInstances(4))
+          .onSuccess {
+            logger.info("Deployed" + it)
+            httpVerticleId = it
+            println("Http Verticle deployed")
+            startPromise.complete()
           }
-        }
+          .onFailure { err ->
+            println("Failed to deploy Http verticle")
+            startPromise.fail(err)
+          }
       }
   }
 }

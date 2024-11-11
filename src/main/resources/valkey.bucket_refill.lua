@@ -1,4 +1,6 @@
 local cursor = "0"
+local initVal = tonumber(ARGV[1]) or 10  -- Default value is 10 if not provided
+
 repeat
     local result = redis.call('SCAN', cursor)
     cursor = result[1]
@@ -7,7 +9,7 @@ repeat
         local msetArgs = {}
         for i, key in ipairs(keys) do
             table.insert(msetArgs, key)
-            table.insert(msetArgs, 10)
+            table.insert(msetArgs, initVal)
         end
         redis.call('MSET', unpack(msetArgs))
     end

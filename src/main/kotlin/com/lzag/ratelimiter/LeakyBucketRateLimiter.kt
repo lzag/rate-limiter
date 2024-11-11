@@ -5,8 +5,14 @@ import io.vertx.core.Promise
 import io.vertx.core.http.HttpServerRequest
 import io.vertx.core.json.DecodeException
 import io.vertx.redis.client.RedisAPI
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
-class RateLimiter(private val scriptSha: String, private val redis: RedisAPI): RateLimiterInterface() {
+class LeakyBucketRateLimiter(
+  private val scriptSha: String,
+  private val redis: RedisAPI,
+  private val maxTokens: Int,
+): RateLimiterInterface() {
   // needed configuration
   // maxRequestCount: maximum number of requests allowed in the requestInterval time
   // requestInterval: time interval in milliseconds
@@ -20,8 +26,10 @@ class RateLimiter(private val scriptSha: String, private val redis: RedisAPI): R
       try {
         val json = body.toJsonObject()
         val userId = json.getString("userId") ?: throw IllegalArgumentException("User ID is missing in the request")
-        // Execute the Lua script to get the counter value
-        redis.evalsha(listOf(scriptSha, "1", userId, 3.toString()))
+
+        val timestamp = Instant.now().truncatedTo(ChronoUnit.MINUTES).toEpochMilli()
+        val key = "${userId}.${timestamp}"
+        redis.evalsha(listOf(scriptSha, "1", key, maxTokens.toString()))
           .onSuccess { result ->
             val isAllowed = result.toInteger() > 0
             promise.complete(isAllowed)
