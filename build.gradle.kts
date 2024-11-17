@@ -38,6 +38,8 @@ dependencies {
   implementation("io.vertx:vertx-redis-client")
   implementation("io.vertx:vertx-config")
   implementation("io.vertx:vertx-config-yaml")
+  implementation("org.slf4j:slf4j-api:1.7.32")
+  implementation("ch.qos.logback:logback-classic:1.2.6")
   implementation(kotlin("stdlib-jdk8"))
   implementation("com.github.ben-manes.caffeine:caffeine:3.1.6")
   testImplementation("io.vertx:vertx-junit5")
@@ -65,3 +67,4 @@ tasks.withType<Test> {
 tasks.withType<JavaExec> {
   args = listOf("run", mainVerticleName, "--redeploy=$watchForChange", "--launcher-class=$launcherClassName", "--on-redeploy=$doOnChange")
 }
+

@@ -7,7 +7,7 @@ import io.vertx.core.json.DecodeException
 import io.vertx.redis.client.RedisAPI
 import javax.naming.LimitExceededException
 
-class RateLimiter(private val scriptSha: String, private val redis: RedisAPI): RateLimiterInterface() {
+class FixedWindowCounterRateLimiter(private val scriptSha: String, private val redis: RedisAPI): RateLimiterInterface() {
 
   override fun allowRequest(request: HttpServerRequest): Future<Boolean> {
     val promise = Promise.promise<Boolean>()

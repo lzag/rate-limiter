@@ -1,6 +1,9 @@
-# tokenBucket, timestampBucket, leakyBucket, fixedWindow, slidingWindow
-rateLimiterType: "TIMESTAMP_BUCKET"
-
-tokensPerMinute: 6
-tokensPerSecond: 10
-concurrentRequests: 7
+rate_limiter:
+  # TOKEN_BUCKET, TIMESTAMP_BUCKET, LEAKY_BUCKET, FIXED_WINDOW_COUNTER, SLIDING_WINDOW_LOG, SLIDING_WINDOW_COUNTER
+  algo: "TIMESTAMP_BUCKET"
+  # how many tokens are allowed per minute
+  request_per_minute: 100
+  # how many in-flight requests are allowed per user
+  concurrent_requests: 5
+  # verticles count - should correspond to the number of valkey shards
+  verticles_count: 1
