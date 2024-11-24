@@ -1,7 +1,11 @@
 local userId = KEYS[1]
 local maxTokens = tonumber(ARGV[1])  -- Maximum tokens allowed
 local initialValue = maxTokens - 1
-local currentTimestamp = tonumber(ARGV[2])
+-- local currentTimestamp = tonumber(ARGV[2]) -- now getting the timestamp from Redis
+
+-- Get the current timestamp from Redis
+local currentTime = redis.call("TIME")
+local currentTimestamp = tonumber(currentTime[1]) * 1000 + math.floor(tonumber(currentTime[2]) / 1000)
 
 local values = redis.call("HMGET", userId, "value", "timestamp")
 local currentValue = values[1]

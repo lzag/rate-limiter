@@ -34,7 +34,7 @@ class HttpVerticle : AbstractVerticle() {
       endHandleRateLimited(ctx, rateLimiter)
         .onSuccess {
           println("Cleaned up")
-//          ctx.response().end()
+          ctx.response().end()
         }
         .onFailure() {
           println("Failed to clean up")
@@ -99,7 +99,7 @@ class HttpVerticle : AbstractVerticle() {
           vertx.eventBus().send("limiter.restart", "")
           println("Error: ${err.message}")
         }
-//        endHandleRateLimited(ctx, rateLimiter)
+        endHandleRateLimited(ctx, rateLimiter)
         ctx.response().setStatusCode(500).end("Internal Server Error")
       }
 
