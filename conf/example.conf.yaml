@@ -2,7 +2,7 @@ rateLimiter:
   # TOKEN_BUCKET, TIMESTAMP_BUCKET, LEAKY_BUCKET, FIXED_WINDOW_COUNTER, SLIDING_WINDOW_LOG, SLIDING_WINDOW_COUNTER
   type: "redis"
 
-  algo: "tokenBucket"
+  algo: "timestampBucket"
 
   refillScriptPaths:
     tokenBucket: "src/main/resources/lua/token_bucket_refill.lua"

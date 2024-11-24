@@ -88,11 +88,10 @@ class MainVerticle : AbstractVerticle() {
     val fileSystem = vertx.fileSystem()
     val rateLimiterConfig = config.getJsonObject("rateLimiter")
     val rateLimitAlgo = rateLimiterConfig.getString("algo")
-    val rateLimitScriptPath = rateLimiterConfig.getJsonObject("scriptPaths").getString(rateLimitAlgo, null)
     val refillScriptPath = rateLimiterConfig.getJsonObject("refillScriptPaths").getString(rateLimitAlgo, null)
     val newConfig = config.copy()
 
-    val rateLimitSetup = fileSystem.readFile(rateLimitScriptPath)
+    val rateLimitSetup = fileSystem.readFile("src/main/resources/lua/generic_script.lua")
       .compose { redis.script(listOf("LOAD", it.toString())) }
       .map {
         newConfig.put("rateLimiterScriptSha", it.toString())

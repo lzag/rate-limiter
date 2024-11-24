@@ -8,20 +8,18 @@ import io.vertx.redis.client.Response
 
 class RedisRateLimiter (
   private val rateLimitScriptSha: String,
+  private val algo: String,
   private val maxRequests: Int,
+  private val windowSize: Int,
   private val redis: RedisAPI,
 ): RateLimiterInterface {
 
   override fun checkRateLimit(key: String): Future<RateLimitCheckResult> {
     println("checking rate limit for key: $key")
     println("rate limit script sha: $rateLimitScriptSha")
-    return redis.evalsha(listOf(rateLimitScriptSha, "1", key, maxRequests.toString()))
-      .map { result ->
-        RateLimitCheckResult(
-          result.toInteger(),
-          1000L
-        )
-      }
+    val currentTimestamp = System.currentTimeMillis()
+    return redis.evalsha(listOf(rateLimitScriptSha, "1", key, algo, maxRequests.toString(), windowSize.toString(), currentTimestamp.toString()))
+      .map { result -> RateLimitCheckResult( result.toInteger(), 1000L ) }
   }
 
   override fun startConcurrent(key: String): Future<Int> {

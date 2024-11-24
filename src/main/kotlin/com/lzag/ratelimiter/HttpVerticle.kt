@@ -6,7 +6,6 @@ import io.vertx.core.Promise
 import io.vertx.core.impl.logging.LoggerFactory
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
-import io.vertx.redis.client.Command
 import io.vertx.redis.client.Redis
 import io.vertx.redis.client.RedisAPI
 import io.vertx.redis.client.impl.types.ErrorType
@@ -24,7 +23,9 @@ class HttpVerticle : AbstractVerticle() {
 
     val rateLimiter = RedisRateLimiter(
       config().getString("rateLimiterScriptSha"),
+      config().getJsonObject("rateLimiter").getString("algo"),
       config().getJsonObject("rateLimiter").getInteger("maxRequests"),
+      config().getJsonObject("rateLimiter").getInteger("interval"),
       RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379")),
     )
 
