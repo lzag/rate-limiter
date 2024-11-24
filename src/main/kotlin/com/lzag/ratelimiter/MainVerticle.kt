@@ -19,8 +19,10 @@ class MainVerticle : AbstractVerticle() {
   }
 
   private var httpVerticleId: String? = null
+  private var nextExecutionTime: Long = 0
 
   override fun start(startPromise: Promise<Void>) {
+    vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"] = nextExecutionTime
     val yamlStore = ConfigStoreOptions()
       .setType("file")
       .setFormat("yaml")
@@ -106,14 +108,15 @@ class MainVerticle : AbstractVerticle() {
             setupRateLimitCronJob(bucketRefillScriptSha.toString(), redis)
           } else {
             // this is not strictly necessary
-            val now = Instant.now()
-            val nextFullMinute = now.plus(Duration.ofMinutes(1)).truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
-            val initialDelay = Duration.between(now, nextFullMinute).toMillis()
-//            nextExecutionTime = nextFullMinute.toEpochMilli()
+//            val now = Instant.now()
+//            val nextFullMinute = now.plus(Duration.ofMinutes(1)).truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
+//            val initialDelay = Duration.between(now, nextFullMinute).toMillis()
+//            val nextExecutionTime = nextFullMinute.toEpochMilli()
+            val interval = rateLimiterConfig.getLong("interval", 60) * 1000
 
 //            vertx.setTimer(initialDelay) {
-              vertx.setPeriodic(rateLimiterConfig.getLong("interval", 60) * 1000) {
-//                nextExecutionTime = Instant.now().plusMillis(60000).toEpochMilli()
+              vertx.setPeriodic(interval) {
+                vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"] = nextExecutionTime
                 redis.evalsha(listOf(bucketRefillScriptSha.toString(), "0", rateLimiterConfig.getString("maxRequests")))
                   .onSuccess { println("Bucket refill completed") }
                   .onFailure { error -> println("Failed to refill bucket: $error") }

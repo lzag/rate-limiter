@@ -12,8 +12,6 @@ class RedisRateLimiter (
   private val redis: RedisAPI,
 ): RateLimiterInterface {
 
-  private var nextExecutionTime: Long? = null
-
   override fun checkRateLimit(key: String): Future<RateLimitCheckResult> {
     println("checking rate limit for key: $key")
     println("rate limit script sha: $rateLimitScriptSha")
@@ -31,7 +29,7 @@ class RedisRateLimiter (
 
     redis.incr("$key:concurrent")
       .onSuccess {
-        println("incremented key: ${it.}")
+        println("incremented key: ${it}")
         promise.complete(it.toInteger())
       }
       .onFailure { error ->

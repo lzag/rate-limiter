@@ -80,9 +80,10 @@ class HttpVerticle : AbstractVerticle() {
         if (remaining <= 0 || concurrentCount > config().getJsonObject("rateLimiter").getInteger("concurrentRequests")) {
           ctx.response()
             .putHeader("content-type", "text/plain")
-            .putHeader("ratelimit-limit", "60")
+            .putHeader("ratelimit-limit", config().getJsonObject("rateLimiter").getString("maxRequests"))
             .putHeader("ratelimit-remaining", remaining.toString())
-            .putHeader("ratelimit-reset", resetTimestamp.toString())
+            .putHeader("ratelimit-reset", vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"].toString())
+
           ctx.response().setStatusCode(429).end("Too Many Requests")
           endHandleRateLimited(ctx, rateLimiter)
         } else {
