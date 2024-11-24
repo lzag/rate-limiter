@@ -6,6 +6,12 @@ import io.vertx.config.ConfigStoreOptions
 import io.vertx.core.*
 import io.vertx.core.impl.logging.LoggerFactory
 import io.vertx.core.json.JsonObject
+import io.vertx.redis.client.Command
+import io.vertx.redis.client.Redis
+import io.vertx.redis.client.RedisAPI
+import io.vertx.redis.client.Response
+import java.time.Duration
+import java.time.Instant
 
 class MainVerticle : AbstractVerticle() {
   companion object {
@@ -13,30 +19,27 @@ class MainVerticle : AbstractVerticle() {
   }
 
   private var httpVerticleId: String? = null
-  private var rateLimiterVerticleId: String? = null
 
   override fun start(startPromise: Promise<Void>) {
     val yamlStore = ConfigStoreOptions()
       .setType("file")
       .setFormat("yaml")
-      .setConfig(io.vertx.core.json.JsonObject().put("path", "conf/conf.yaml"))
+      .setConfig(JsonObject().put("path", "conf/conf.yaml"))
 
     val options = ConfigRetrieverOptions().addStore(yamlStore).setScanPeriod(1000)
     val retriever = ConfigRetriever.create(vertx, options)
 
-    logger.info("System property: ${System.getProperty("org.vertx.logger-delegate-factory-class-name")}")
-    logger.info(logger.javaClass.name)
-
     retriever.listen { change ->
       println("Processing configuration change")
-      if (rateLimiterVerticleId != null) {
-        logger.info("Undeploying Rate Limiter Verticle $rateLimiterVerticleId")
-        vertx.undeploy(rateLimiterVerticleId)
-          .compose {
-            vertx.deployVerticle(HttpVerticle::class.java, DeploymentOptions().setConfig(change.newConfiguration).setInstances(4))
+      if (httpVerticleId != null) {
+        logger.info("Undeploying Rate Limiter Verticle $httpVerticleId")
+        vertx.undeploy(httpVerticleId)
+          .compose{ initRateLimiter(change.newConfiguration) }
+          .compose { config ->
+            vertx.deployVerticle(HttpVerticle::class.java, DeploymentOptions().setConfig(config).setInstances(config.getInteger("httpVerticleInstances", 4)))
           }
           .onSuccess {
-            rateLimiterVerticleId = it
+            httpVerticleId = it
           }
           .onFailure { err ->
             println("Failed to undeploy verticle: ${err.message}")
@@ -46,18 +49,29 @@ class MainVerticle : AbstractVerticle() {
 
     retriever.config
       .compose(::initRateLimiter)
-      .compose { rateLimitConfig ->
-            vertx.deployVerticle(HttpVerticle::class.java, DeploymentOptions().setConfig(rateLimitConfig).setInstances(4))
+      .compose { config ->
+        vertx.deployVerticle(HttpVerticle::class.java, DeploymentOptions().setConfig(config).setInstances(config.getInteger("instances", 4)))
       }
       .onSuccess {
         logger.info("Deployed Application")
-        httpVerticleId = it.resultAt(0)
+        httpVerticleId = it
         startPromise.complete()
       }
       .onFailure { err ->
         println("Failed to deploy Applicattion")
         startPromise.fail(err)
       }
+    // Listen for the limiter.restart event
+    vertx.eventBus().consumer<String>("limiter.restart") {
+      retriever.config
+        .compose(::initRateLimiter)
+        .onSuccess {
+          println("Rate limiter re-initialized")
+        }
+        .onFailure { err ->
+          println("Failed to re-initialize rate limiter: ${err.message}")
+        }
+    }
   }
 
   override fun stop(stopPromise: Promise<Void>) {
@@ -66,15 +80,26 @@ class MainVerticle : AbstractVerticle() {
   }
 
   private fun initRateLimiter(config: JsonObject): Future<JsonObject> {
+    val runPeriodicOnRedis = config.getBoolean("runPeriodicOnRedis", false)
+    val redis = RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379"))
+    val promise = Promise.promise<JsonObject>()
     val fileSystem = vertx.fileSystem()
-    val rateLimitSetup = fileSystem.readFile(rateLimitChecker.checkerScriptPath)
-      .compose { redis.script(listOf("LOAD", it.toString())) }
-      .map{ rateLimitScriptSha = it.toString() }
-      .map{ println(rateLimitScriptSha) }
+    val rateLimiterConfig = config.getJsonObject("rateLimiter")
+    val rateLimitAlgo = rateLimiterConfig.getString("algo")
+    val rateLimitScriptPath = rateLimiterConfig.getJsonObject("scriptPaths").getString(rateLimitAlgo, null)
+    val refillScriptPath = rateLimiterConfig.getJsonObject("refillScriptPaths").getString(rateLimitAlgo, null)
+    val newConfig = config.copy()
 
-    val periodicScriptSetup = if (rateLimitChecker.refillScriptPath != null) {
+    val rateLimitSetup = fileSystem.readFile(rateLimitScriptPath)
+      .compose { redis.script(listOf("LOAD", it.toString())) }
+      .map {
+        newConfig.put("rateLimiterScriptSha", it.toString())
+      }
+      .map{ println(newConfig) }
+
+    val periodicScriptSetup = if (refillScriptPath != null) {
       fileSystem
-        .readFile(rateLimitChecker.refillScriptPath)
+        .readFile(refillScriptPath)
         .compose { redis.script(listOf("LOAD", it.toString())) }
         .onSuccess { bucketRefillScriptSha ->
           if (runPeriodicOnRedis) {
@@ -84,16 +109,16 @@ class MainVerticle : AbstractVerticle() {
             val now = Instant.now()
             val nextFullMinute = now.plus(Duration.ofMinutes(1)).truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
             val initialDelay = Duration.between(now, nextFullMinute).toMillis()
-            nextExecutionTime = nextFullMinute.toEpochMilli()
+//            nextExecutionTime = nextFullMinute.toEpochMilli()
 
-            vertx.setTimer(initialDelay) {
-              periodicTimer = vertx.setPeriodic(60000) {
-                nextExecutionTime = Instant.now().plusMillis(60000).toEpochMilli()
-                redis.evalsha(listOf(bucketRefillScriptSha.toString(), "0"))
+//            vertx.setTimer(initialDelay) {
+              vertx.setPeriodic(rateLimiterConfig.getLong("interval", 60) * 1000) {
+//                nextExecutionTime = Instant.now().plusMillis(60000).toEpochMilli()
+                redis.evalsha(listOf(bucketRefillScriptSha.toString(), "0", rateLimiterConfig.getString("maxRequests")))
                   .onSuccess { println("Bucket refill completed") }
                   .onFailure { error -> println("Failed to refill bucket: $error") }
               }
-            }
+//            }
           }
         }
     } else null
@@ -101,9 +126,23 @@ class MainVerticle : AbstractVerticle() {
     Future.all(listOfNotNull(rateLimitSetup, periodicScriptSetup))
       .onSuccess {
         println("Rate limiter setup completed")
+        promise.complete(newConfig)
       }
       .onFailure {
         throw RuntimeException("Failed to setup rate limiter", it)
       }
+    return promise.future()
   }
+
+  // maybe will user in the future
+  private fun setupRateLimitCronJob(bucketRefillScriptSha: String, redis: RedisAPI): Future<Response> {
+    val cronExpression = "* * * * *"  // Adjust the cron expression as needed
+    val cronCommand = "EVALSHA $bucketRefillScriptSha 0"
+    val configSetCommand = "CONFIG SET keydb.cron \"$cronExpression $cronCommand\""
+
+    return redis.send(Command.CONFIG, "SET", "keydb.cron", configSetCommand)
+      .onSuccess { println("Cron job scheduled successfully") }
+      .onFailure { error -> println("Failed to schedule cron job: $error") }
+  }
+
 }

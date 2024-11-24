@@ -8,6 +8,11 @@ if not currentValue then
   return initialValue
 else
   local newValue = tonumber(currentValue) - 1
+  -- if we don't want negative values
+  if newValue < 0 then
+    newValue = 0
+  end
+  -- update the value
   redis.call("SET", userId, newValue)
   redis.call("PEXPIRE", userId, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
   return newValue

@@ -2,28 +2,27 @@ rateLimiter:
   # TOKEN_BUCKET, TIMESTAMP_BUCKET, LEAKY_BUCKET, FIXED_WINDOW_COUNTER, SLIDING_WINDOW_LOG, SLIDING_WINDOW_COUNTER
   type: "redis"
 
-  algo: "timestampBucket"
+  algo: "tokenBucket"
 
-  redis:
-    scriptPaths:
-      tokenBucket: "src/main/resources/lua/token_bucket.lua"
-      timestampBucket: "src/main/resources/lua/timestamp_bucket.lua"
-      leakyBucket: "src/main/resources/lua/leaky_bucket.lua"
-      fixedWindowCounter: "src/main/resources/lua/fixed_window_counter.lua"
-      slidingWindowLog: "src/main/resources/lua/sliding_window_log.lua"
-      slidingWindowCounter: "src/main/resources/lua/sliding_window_counter.lua"
+  scriptPaths:
+    tokenBucket: "src/main/resources/lua/token_bucket.lua"
+    timestampBucket: "src/main/resources/lua/timestamp_bucket.lua"
+    leakyBucket: "src/main/resources/lua/leaky_bucket.lua"
+    fixedWindowCounter: "src/main/resources/lua/fixed_window_counter.lua"
+    slidingWindowLog: "src/main/resources/lua/sliding_window_log.lua"
+    slidingWindowCounter: "src/main/resources/lua/sliding_window_counter.lua"
 
-    refillScriptPaths:
-      tokenBucket: "src/main/resources/lua/token_bucket_refill.lua"
+  refillScriptPaths:
+    tokenBucket: "src/main/resources/lua/token_bucket_refill.lua"
 
   # how many tokens are allowed per minute
-  maxRequests: 100
+  maxRequests: 10
 
   # what is the time interval in seconds
-  interval: 60
+  interval: 5
 
   # how many in-flight requests are allowed per user
   concurrentRequests: 5
 
-  # verticles count - making the system scalable
-  verticlesCount: 5
+# verticles count - making the system scalable
+httpVerticleInstances: 1
