@@ -1,9 +1,29 @@
-rate_limiter:
+rateLimiter:
   # TOKEN_BUCKET, TIMESTAMP_BUCKET, LEAKY_BUCKET, FIXED_WINDOW_COUNTER, SLIDING_WINDOW_LOG, SLIDING_WINDOW_COUNTER
-  algo: "TIMESTAMP_BUCKET"
+  type: "redis"
+
+  algo: "timestampBucket"
+
+  redis:
+    scriptPaths:
+      tokenBucket: "src/main/resources/lua/token_bucket.lua"
+      timestampBucket: "src/main/resources/lua/timestamp_bucket.lua"
+      leakyBucket: "src/main/resources/lua/leaky_bucket.lua"
+      fixedWindowCounter: "src/main/resources/lua/fixed_window_counter.lua"
+      slidingWindowLog: "src/main/resources/lua/sliding_window_log.lua"
+      slidingWindowCounter: "src/main/resources/lua/sliding_window_counter.lua"
+
+    refillScriptPaths:
+      tokenBucket: "src/main/resources/lua/token_bucket_refill.lua"
+
   # how many tokens are allowed per minute
-  request_per_minute: 100
+  maxRequests: 100
+
+  # what is the time interval in seconds
+  interval: 60
+
   # how many in-flight requests are allowed per user
-  concurrent_requests: 5
-  # verticles count - should correspond to the number of valkey shards
-  verticles_count: 1
+  concurrentRequests: 5
+
+  # verticles count - making the system scalable
+  verticlesCount: 5

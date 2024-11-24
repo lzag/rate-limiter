@@ -30,12 +30,12 @@ application {
 
 dependencies {
   implementation(platform("io.vertx:vertx-stack-depchain:$vertxVersion"))
-  implementation("io.vertx:vertx-http-proxy")
-  implementation("io.vertx:vertx-health-check")
-  implementation("io.vertx:vertx-web")
-  implementation("io.vertx:vertx-shell")
+  implementation("io.vertx:vertx-http-proxy:$vertxVersion")
+  implementation("io.vertx:vertx-health-check:$vertxVersion")
+  implementation("io.vertx:vertx-web:$vertxVersion")
+  implementation("io.vertx:vertx-shell:$vertxVersion")
   implementation("io.vertx:vertx-lang-kotlin")
-  implementation("io.vertx:vertx-redis-client")
+  implementation("io.vertx:vertx-redis-client:$vertxVersion")
   implementation("io.vertx:vertx-config")
   implementation("io.vertx:vertx-config-yaml")
   implementation("org.slf4j:slf4j-api:1.7.32")

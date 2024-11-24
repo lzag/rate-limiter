@@ -1,6 +1,6 @@
 package com.lzag.ratelimiter
 
-enum class RateLimiterType {
+enum class RateLimiterAlgo {
   TOKEN_BUCKET,
   LEAKY_BUCKET,
   TIMESTAMP_BUCKET,
