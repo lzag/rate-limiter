@@ -1,13 +1,11 @@
 rateLimiter:
-  # TOKEN_BUCKET, TIMESTAMP_BUCKET, LEAKY_BUCKET, FIXED_WINDOW_COUNTER, SLIDING_WINDOW_LOG, SLIDING_WINDOW_COUNTER
   type: "redis"
 
+  # tokenBucket, timestampBucket, leakyBucket, fixedWindowCounter, slidingWindowLog, slidingWindowCounter
   algo: "tokenBucket"
+  refill: true # whether to refill the bucket or not, set true for tokenBucket and leakyBucket
 
-  refillScriptPaths:
-    tokenBucket: "src/main/resources/lua/token_bucket_refill.lua"
-
-  # how many tokens are allowed per minute
+  # how many tokens are allowed per interval
   maxRequests: 10
 
   # what is the time interval in seconds

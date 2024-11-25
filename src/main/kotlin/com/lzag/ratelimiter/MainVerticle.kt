@@ -88,19 +88,20 @@ class MainVerticle : AbstractVerticle() {
     val fileSystem = vertx.fileSystem()
     val rateLimiterConfig = config.getJsonObject("rateLimiter")
     val rateLimitAlgo = rateLimiterConfig.getString("algo")
-    val refillScriptPath = rateLimiterConfig.getJsonObject("refillScriptPaths").getString(rateLimitAlgo, null)
+    val refillEnabled = rateLimiterConfig.getBoolean("refill", false)
     val newConfig = config.copy()
+    val interval = rateLimiterConfig.getLong("interval", 60) * 1000
 
-    val rateLimitSetup = fileSystem.readFile("src/main/resources/lua/generic_script.lua")
+    val rateLimitSetup = fileSystem.readFile("src/main/resources/lua/checkers.lua")
       .compose { redis.script(listOf("LOAD", it.toString())) }
       .map {
         newConfig.put("rateLimiterScriptSha", it.toString())
       }
       .map{ println(newConfig) }
 
-    val periodicScriptSetup = if (refillScriptPath != null) {
+    val periodicScriptSetup = if (refillEnabled == true) {
       fileSystem
-        .readFile(refillScriptPath)
+        .readFile("src/main/resources/lua/refill.lua")
         .compose { redis.script(listOf("LOAD", it.toString())) }
         .onSuccess { bucketRefillScriptSha ->
           if (runPeriodicOnRedis) {
@@ -111,19 +112,21 @@ class MainVerticle : AbstractVerticle() {
 //            val nextFullMinute = now.plus(Duration.ofMinutes(1)).truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
 //            val initialDelay = Duration.between(now, nextFullMinute).toMillis()
 //            val nextExecutionTime = nextFullMinute.toEpochMilli()
-            val interval = rateLimiterConfig.getLong("interval", 60) * 1000
 
 //            vertx.setTimer(initialDelay) {
               vertx.setPeriodic(interval) {
                 vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"] = nextExecutionTime
-                redis.evalsha(listOf(bucketRefillScriptSha.toString(), "0", rateLimiterConfig.getString("maxRequests")))
+                redis.evalsha(listOf(bucketRefillScriptSha.toString(), "0", rateLimitAlgo, rateLimiterConfig.getString("maxRequests")))
                   .onSuccess { println("Bucket refill completed") }
                   .onFailure { error -> println("Failed to refill bucket: $error") }
               }
 //            }
           }
         }
-    } else null
+    } else {
+      nextExecutionTime = interval
+      null
+    }
 
     Future.all(listOfNotNull(rateLimitSetup, periodicScriptSetup))
       .onSuccess {
@@ -146,5 +149,4 @@ class MainVerticle : AbstractVerticle() {
       .onSuccess { println("Cron job scheduled successfully") }
       .onFailure { error -> println("Failed to schedule cron job: $error") }
   }
-
 }

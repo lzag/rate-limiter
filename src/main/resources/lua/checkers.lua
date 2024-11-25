@@ -47,7 +47,8 @@ local function timestamp_bucket(userId, maxTokens, windowSize, timestamp)
   end
 end
 
--- Function to handle leaky bucket
+-- Function to handle leaky bucket as a meter
+-- https://en.wikipedia.org/wiki/Leaky_bucket
 local function leaky_bucket(userId, maxTokens, windowSize, timestamp)
   local userId = userId
   local maxTokens = maxTokens
