@@ -14,12 +14,12 @@ class RedisRateLimiter (
   private val redis: RedisAPI,
 ): RateLimiterInterface {
 
-  override fun checkRateLimit(key: String): Future<RateLimitCheckResult> {
+  override fun checkRateLimit(key: String): Future<Int> {
     println("checking rate limit for key: $key")
     println("rate limit script sha: $rateLimitScriptSha")
     val currentTimestamp = System.currentTimeMillis()
     return redis.evalsha(listOf(rateLimitScriptSha, "1", key, algo, maxRequests.toString(), windowSize.toString(), currentTimestamp.toString()))
-      .map { result -> RateLimitCheckResult( result.toInteger(), 1000L ) }
+      .map { it.toInteger() }
   }
 
   override fun startConcurrent(key: String): Future<Int> {

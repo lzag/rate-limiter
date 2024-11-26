@@ -71,27 +71,27 @@ class HttpVerticle : AbstractVerticle() {
       .startConcurrent(ctx.request().getHeader("X-User-Id"))
       .compose { concurrentCount ->
         println("Concurrent: $concurrentCount")
-        rateLimiter.checkRateLimit(ctx.request().getHeader("X-User-Id")).map { result ->
-          println("Remaining: ${result.remaining}, Reset: ${result.resetTimestamp}, Concurrent: $concurrentCount")
-          Triple(result.remaining, result.resetTimestamp, concurrentCount)
+        rateLimiter.checkRateLimit(ctx.request().getHeader("X-User-Id")).map { remaining ->
+          println("Remaining: ${remaining}, Concurrent: $concurrentCount")
+          Pair(remaining, concurrentCount)
         }
       }
-      .onSuccess { (remaining, resetTimestamp, concurrentCount) ->
-        println("Remaining: $remaining, Reset: $resetTimestamp, Concurrent: $concurrentCount")
-        if (remaining <= 0 || concurrentCount > config().getJsonObject("rateLimiter").getInteger("concurrentRequests")) {
-          ctx.response()
-            .putHeader("content-type", "text/plain")
-            .putHeader("ratelimit-limit", config().getJsonObject("rateLimiter").getString("maxRequests"))
-            .putHeader("ratelimit-remaining", remaining.toString())
-            .putHeader("ratelimit-reset", vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"].toString())
+      .onSuccess { (remaining, concurrentCount) ->
+        println("Remaining: $remaining, Concurrent: $concurrentCount")
+        ctx.response()
+          .putHeader("content-type", "text/plain")
+          .putHeader("ratelimit-limit", config().getJsonObject("rateLimiter").getString("maxRequests"))
+          .putHeader("ratelimit-remaining", remaining.toString())
+          .putHeader("ratelimit-reset", vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"].toString())
 
+        if (remaining <= 0 || concurrentCount > config().getJsonObject("rateLimiter").getInteger("concurrentRequests") + 10) {
           ctx.response().setStatusCode(429).end("Too Many Requests")
           endHandleRateLimited(ctx, rateLimiter)
         } else {
           ctx.next()
         }
       }
-      .onFailure() { err ->
+      .onFailure { err ->
         println(err)
         println("Failure!")
         println("Error: ${err.message}")

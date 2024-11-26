@@ -22,7 +22,6 @@ class MainVerticle : AbstractVerticle() {
   private var nextExecutionTime: Long = 0
 
   override fun start(startPromise: Promise<Void>) {
-    vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"] = nextExecutionTime
     val yamlStore = ConfigStoreOptions()
       .setType("file")
       .setFormat("yaml")
@@ -82,6 +81,7 @@ class MainVerticle : AbstractVerticle() {
   }
 
   private fun initRateLimiter(config: JsonObject): Future<JsonObject> {
+    val rateLimiterData = vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")
     val runPeriodicOnRedis = config.getBoolean("runPeriodicOnRedis", false)
     val redis = RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379"))
     val promise = Promise.promise<JsonObject>()
@@ -115,7 +115,7 @@ class MainVerticle : AbstractVerticle() {
 
 //            vertx.setTimer(initialDelay) {
               vertx.setPeriodic(interval) {
-                vertx.sharedData().getLocalMap<String, Long>("rateLimiterData")["nextExecutionTime"] = nextExecutionTime
+               rateLimiterData["nextExecutionTime"] = System.currentTimeMillis() + interval
                 redis.evalsha(listOf(bucketRefillScriptSha.toString(), "0", rateLimitAlgo, rateLimiterConfig.getString("maxRequests")))
                   .onSuccess { println("Bucket refill completed") }
                   .onFailure { error -> println("Failed to refill bucket: $error") }
