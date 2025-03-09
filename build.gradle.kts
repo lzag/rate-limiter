@@ -15,7 +15,7 @@ repositories {
   mavenCentral()
 }
 
-val vertxVersion = "4.5.10"
+val vertxVersion = "4.5.13"
 val junitJupiterVersion = "5.9.1"
 
 val mainVerticleName = "com.lzag.ratelimiter.MainVerticle"
