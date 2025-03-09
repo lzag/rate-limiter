@@ -1,31 +1,59 @@
-= Starter
+# Rate limiter
 
-image:https://img.shields.io/badge/vert.x-4.5.10-purple.svg[link="https://vertx.io"]
+Rate limiter written in Kotlin with Vertx framework
 
-This application was generated using http://start.vertx.io
+### [View the demo](https://lukaszzagroba.com) | [Read the article](https://www.lukaszzagroba.com)
 
-== Building
+## Table of Contents
 
-To launch your tests:
+- [Installation](#installation)
+- [Usage](#usage)
+- [Motivation](#motivation)
+- [Testing](#testing)
+- [Acknowlegdements & Link](#acknowledgements)
+- [License](#license)
+
+## Installation
+
+## Usage
+
+#### Development
+
+#### Deployment
+
+### Terminal
+
+## Motivation
+
+The main motivation is to learn rate limit concept and how to implement it in Kotlin with Vertx framework.
+
+Here are some of the concepts I learned while writing this program:
+
+- 
+-
+-
+
+
+And here are some articles I wrote based on those concepts:
+
+- [Sample](https://lukaszzagroba.com)
+
+## Testing
+
+```bash
+# Run test suites
+
+# Run test suites and view coverage
 ```
-./gradlew clean test
-```
 
-To package your application:
-```
-./gradlew clean assemble
-```
+## Links & Acknowledgements
 
-To run your application:
-```
-./gradlew clean run
-```
+- 
 
-== Help
+## Author
 
-* https://vertx.io/docs/[Vert.x Documentation]
-* https://stackoverflow.com/questions/tagged/vert.x?sort=newest&pageSize=15[Vert.x Stack Overflow]
-* https://groups.google.com/forum/?fromgroups#!forum/vertx[Vert.x User Group]
-* https://discord.gg/6ry7aqPWXy[Vert.x Discord]
+- [Lukasz Zagroba](https://lukaszzagroba.com)
 
+## License
 
+This project is open source and available under the [MIT License](LICENSE).
