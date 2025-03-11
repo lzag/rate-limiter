@@ -1,3 +1,4 @@
+
 -- Function to handle token bucket
 local function token_bucket(key, maxRequests)
   local initialValue = maxRequests
@@ -15,20 +16,20 @@ local function token_bucket(key, maxRequests)
     end
     -- update the value
     redis.call("SET", key, newValue)
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
+    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 ms)
     return newValue
   end
 end
 
 -- Function to handle timestamp bucket
-local function timestamp_bucket(key, maxRequests, windowSize, requestTimestamp)
+local function algo_token_bucket(key, maxRequests, windowSize, requestTimestamp)
   local values = redis.call("HMGET", key, "value", "timestamp")
   local currentValue = values[1]
   local oldTimestamp = values[2]
 
   if not currentValue then
     redis.call("HSET", key, "value", maxTokens - 1, "timestamp", requestTimestamp)
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
+    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 ms)
     return maxRequests - 1
   else
     local elapsedTime = requestTimestamp - tonumber(oldTimestamp)
@@ -39,7 +40,7 @@ local function timestamp_bucket(key, maxRequests, windowSize, requestTimestamp)
       redis.call("HSET", key, "value", newValue, "timestamp", currentTimestamp)
     end
 
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
+    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 ms)
     return newValue
   end
 end

@@ -19,6 +19,7 @@ end
 
 -- timestamp bucket refill script
 local function leaky_bucket()
+  local cursor = "0"
   repeat
       local result = redis.call('SCAN', cursor)
       cursor = result[1]

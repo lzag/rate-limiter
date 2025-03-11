@@ -1,18 +1,22 @@
 rateLimiter:
   type: "redis"
 
-  # tokenBucket, timestampBucket, leakyBucket, fixedWindowCounter, slidingWindowLog, slidingWindowCounter
-  algo: "slidingWindowCounter"
-  refill: false # whether to refill the bucket or not, set true for tokenBucket and leakyBucket
+  # tokenBucket, algoTokenBucket, leakyBucket, fixedWindowCounter, slidingWindowLog, slidingWindowCounter
+  algo: "leakyBucket"
+  # whether to refill the bucket or not, set for tokenBucket and leakyBucket
+  refill: true
 
   # how many tokens are allowed per interval
-  maxRequests: 10
+  maxRequests: 1000
 
   # what is the time interval in seconds
-  interval: 3600
+  interval: 60
 
   # how many in-flight requests are allowed per user
-  concurrentRequests: 5
+  maxConcurrentPerUser: 5
+
+  # how many in-flight requests are allowed per endpoint
+  maxConcurrentPerEndpoint: 100
 
 # verticles count - making the system scalable
 httpVerticleInstances: 1

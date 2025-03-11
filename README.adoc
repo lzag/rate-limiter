@@ -29,7 +29,7 @@ The main motivation is to learn rate limit concept and how to implement it in Ko
 
 Here are some of the concepts I learned while writing this program:
 
-- 
+-
 -
 -
 
@@ -48,7 +48,8 @@ And here are some articles I wrote based on those concepts:
 
 ## Links & Acknowledgements
 
-- 
+- [Token bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket#Algorithm)
+- [An alternative approach to rate limiting](https://www.figma.com/blog/an-alternative-approach-to-rate-limiting/)
 
 ## Author
 

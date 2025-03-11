@@ -11,23 +11,22 @@ import io.vertx.redis.client.RedisAPI
 import io.vertx.redis.client.impl.types.ErrorType
 
 class HttpVerticle : AbstractVerticle() {
-
   companion object {
     private val logger = LoggerFactory.getLogger(HttpVerticle::class.java)
   }
 
   override fun start(startPromise: Promise<Void>) {
-
     logger.info("Deploying HttpVerticle")
     val router = Router.router(vertx)
 
-    val rateLimiter = RedisRateLimiter(
-      config().getString("rateLimiterScriptSha"),
-      config().getJsonObject("rateLimiter").getString("algo"),
-      config().getJsonObject("rateLimiter").getInteger("maxRequests"),
-      config().getJsonObject("rateLimiter").getInteger("interval"),
-      RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379")),
-    )
+    val rateLimiter =
+      RedisRateLimiter(
+        config().getString("rateLimiterScriptSha"),
+        config().getJsonObject("rateLimiter").getString("algo"),
+        config().getJsonObject("rateLimiter").getInteger("maxRequests"),
+        config().getJsonObject("rateLimiter").getInteger("interval"),
+        RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379")),
+      )
 
 //     End handler for all routes
     router.route().last().handler { ctx ->
@@ -37,7 +36,7 @@ class HttpVerticle : AbstractVerticle() {
           println("Cleaned up")
           ctx.response().end()
         }
-        .onFailure() {
+        .onFailure {
           println("Failed to clean up")
 //          ctx.response().setStatusCode(500).end("Internal Server Error")
         }
@@ -65,14 +64,17 @@ class HttpVerticle : AbstractVerticle() {
     stopPromise.complete()
   }
 
-  private fun handleRateLimited(ctx: RoutingContext ,rateLimiter: RateLimiterInterface) {
+  private fun handleRateLimited(
+    ctx: RoutingContext,
+    rateLimiter: RateLimiterInterface,
+  ) {
     println("Common handler executed")
     rateLimiter
       .startConcurrent(ctx.request().getHeader("X-User-Id"))
       .compose { concurrentCount ->
         println("Concurrent: $concurrentCount")
         rateLimiter.checkRateLimit(ctx.request().getHeader("X-User-Id")).map { remaining ->
-          println("Remaining: ${remaining}, Concurrent: $concurrentCount")
+          println("Remaining: $remaining, Concurrent: $concurrentCount")
           Pair(remaining, concurrentCount)
         }
       }
@@ -103,10 +105,12 @@ class HttpVerticle : AbstractVerticle() {
         endHandleRateLimited(ctx, rateLimiter)
         ctx.response().setStatusCode(500).end("Internal Server Error")
       }
-
   }
 
-  private fun endHandleRateLimited(ctx: RoutingContext, rateLimiter: RateLimiterInterface): Future<Int> {
+  private fun endHandleRateLimited(
+    ctx: RoutingContext,
+    rateLimiter: RateLimiterInterface,
+  ): Future<Int> {
     logger.info("End handler executed")
     return rateLimiter.endConcurrent(ctx.request().getHeader("X-User-Id"))
 //      .onSuccess() {
