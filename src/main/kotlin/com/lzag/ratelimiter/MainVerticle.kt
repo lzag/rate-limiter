@@ -11,6 +11,7 @@ import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.coAwait
 import io.vertx.redis.client.Redis
 import io.vertx.redis.client.RedisAPI
+import io.vertx.redis.client.ResponseType
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
@@ -99,20 +100,44 @@ class MainVerticle : CoroutineVerticle(), CoroutineEventBusSupport {
           logger.debug("Rate limit script loaded: $it")
           it.toString()
         }.coAwait()
+    val testResponse = redis.evalsha(
+      listOf(rateLimiterSha,
+        "1",
+        "test",
+        rlConfig.getString("algo"),
+        rlConfig.getString("maxRequests"),
+        rlConfig.getString("interval"),
+        System.currentTimeMillis().toString(),
+      ),
+    ).coAwait()
+    if (testResponse.type() == ResponseType.ERROR) {
+      throw Exception("Failed to backfill rate limiter: $testResponse")
+    }
 
-    if (rlConfig.getBoolean("refill") == false) {
+    val needsRefill = rlConfig.getString("algo") == "tokenBucket" || rlConfig.getString("algo") == "leakyBucket"
+    if (!needsRefill) {
       rateLimiterData["nextExecutionTime"] = rlConfig.getLong("interval")
     } else {
       val backFillSha =
         fileSystem
           .readFile("src/main/resources/lua/refill.lua")
           .compose { redis.script(listOf("LOAD", it.toString())) }
-          .coAwait()
+          .coAwait().toString()
+      val checkResponse = redis.evalsha( listOf(
+          backFillSha,
+          "0",
+          rlConfig.getString("algo"),
+          rlConfig.getString("maxRequests"),
+        ),
+      ).coAwait()
+      if (checkResponse.type() == ResponseType.ERROR) {
+        throw Exception("Error setting up rate limit script: $checkResponse")
+      }
       vertx.setPeriodic(rlConfig.getLong("interval").seconds.inWholeMilliseconds) {
         rateLimiterData["nextExecutionTime"] = System.currentTimeMillis() + rlConfig.getLong("interval")
         redis.evalsha(
           listOf(
-            backFillSha.toString(),
+            backFillSha,
             "0",
             rlConfig.getString("algo"),
             rlConfig.getString("maxRequests"),

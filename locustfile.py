@@ -8,7 +8,7 @@ class QuickTestUser(HttpUser):
     host = "http://localhost:8888"
 
     # Wait time between requests for each user (0.01 to 0.05 seconds)
-    wait_time = between(0.01, 2)
+    wait_time = between(0.01, 0.8)
 
     # Unique user ID counter
     user_id = 0

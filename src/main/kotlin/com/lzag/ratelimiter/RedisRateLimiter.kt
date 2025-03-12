@@ -2,6 +2,7 @@ package com.lzag.ratelimiter
 
 import io.vertx.core.Future
 import io.vertx.core.Promise
+import io.vertx.core.impl.logging.LoggerFactory
 import io.vertx.redis.client.RedisAPI
 
 class RedisRateLimiter(
@@ -11,14 +12,19 @@ class RedisRateLimiter(
   private val windowSize: Int,
   private val redis: RedisAPI,
 ) : RateLimiterInterface {
+  companion object {
+    val logger = LoggerFactory.getLogger(RedisRateLimiter::class.java)
+  }
   override fun checkRateLimit(key: String): Future<Int> {
-    println("checking rate limit for key: $key")
-    println("rate limit script sha: $rateLimitScriptSha")
+    logger.debug("checking rate limit for key: $key")
     val currentTimestamp = System.currentTimeMillis()
     return redis.evalsha(
       listOf(rateLimitScriptSha, "1", key, algo, maxRequests.toString(), windowSize.toString(), currentTimestamp.toString()),
     )
-      .map { it.toInteger() }
+      .map {
+        logger.debug("rate limit check result: $it")
+        it.toInteger()
+      }
   }
 
   override fun startConcurrent(key: String): Future<Int> {
@@ -26,7 +32,7 @@ class RedisRateLimiter(
 
     redis.incr("$key:concurrent")
       .onSuccess {
-        println("incremented key: $it")
+        logger.debug("incremented key: $it")
         promise.complete(it.toInteger())
       }
       .onFailure { error ->
@@ -42,10 +48,11 @@ class RedisRateLimiter(
         redis.expire(listOf("$key:concurrent", "1800")) // Set expiration to 30 minutes (1800 seconds)
       }
       .onSuccess {
-        println("decremented key: $it")
+        logger.debug("decremented key: $it")
         promise.complete(it.toInteger())
       }
       .onFailure { error ->
+        logger.error(error)
         promise.fail(RuntimeException("Failed to decrement key: $key", error))
       }
     return promise.future()

@@ -8,3 +8,16 @@ services:
 #      - VALKEY_CONFIG=/config/valkey.yaml
 #    volumes:
 #      - ./config:/config
+
+  locust:
+    image: locustio/locust:latest
+    extra_hosts: {
+      "host.docker.internal": "host-gateway"
+    }
+    ports:
+      - "8089:8089"  # Web UI access
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py  # Mount your test scripts here
+    command: -f /mnt/locust/locustfile.py --host=http://host.docker.internal:8888  # Run the test script
+    environment:
+      - LOCUST_MODE=standalone  # Run in standalone mode

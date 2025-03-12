@@ -2,9 +2,7 @@ rateLimiter:
   type: "redis"
 
   # tokenBucket, algoTokenBucket, leakyBucket, fixedWindowCounter, slidingWindowLog, slidingWindowCounter
-  algo: "leakyBucket"
-  # whether to refill the bucket or not, set for tokenBucket and leakyBucket
-  refill: true
+  algo: "fixedWindowCounter"
 
   # how many tokens are allowed per interval
   maxRequests: 1000

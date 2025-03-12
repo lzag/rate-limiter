@@ -50,6 +50,8 @@ dependencies {
   implementation("com.github.ben-manes.caffeine:caffeine:3.1.6")
   testImplementation("io.vertx:vertx-junit5")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
+  implementation("org.slf4j:slf4j-api:2.0.12")
+  implementation("ch.qos.logback:logback-classic:1.5.3")
 }
 
 val compileKotlin: KotlinCompile by tasks
