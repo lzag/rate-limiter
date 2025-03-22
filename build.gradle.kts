@@ -52,6 +52,7 @@ dependencies {
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
   implementation("org.slf4j:slf4j-api:2.0.12")
   implementation("ch.qos.logback:logback-classic:1.5.3")
+  implementation("io.vertx:vertx-circuit-breaker:$vertxVersion")
 }
 
 val compileKotlin: KotlinCompile by tasks

@@ -4,7 +4,7 @@
       <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
-  <logger name="com.lzag.ratelimiter" level="DEBUG"/>
+  <logger name="com.lzag.ratelimiter" level="INFO"/>
   <root level="INFO">
     <appender-ref ref="STDOUT" />
   </root>

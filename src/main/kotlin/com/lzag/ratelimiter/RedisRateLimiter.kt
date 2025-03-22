@@ -1,60 +1,91 @@
 package com.lzag.ratelimiter
 
 import io.vertx.core.Future
-import io.vertx.core.Promise
+import io.vertx.core.Vertx
 import io.vertx.core.impl.logging.LoggerFactory
+import io.vertx.core.json.JsonObject
+import io.vertx.kotlin.coroutines.coAwait
+import io.vertx.redis.client.Redis
 import io.vertx.redis.client.RedisAPI
+import io.vertx.redis.client.ResponseType
+import kotlin.time.Duration.Companion.seconds
 
-class RedisRateLimiter(
-  private val rateLimitScriptSha: String,
-  private val algo: String,
-  private val maxRequests: Int,
-  private val windowSize: Int,
-  private val redis: RedisAPI,
+class RedisRateLimiter private constructor(
+  config: JsonObject,
+  private val vertx: Vertx,
 ) : RateLimiterInterface {
+  private lateinit var rateLimitScriptSha: String
+  private var backFillSha: String? = null
+  private var nextExcecutionTime: Long? = null
+  private val algo: String = config.getString("algo")
+  private val maxRequests: Int = config.getInteger("maxRequests")
+  private val windowSize: Int = config.getInteger("interval")
+  private val redis: RedisAPI = RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379"))
+
   companion object {
-    val logger = LoggerFactory.getLogger(RedisRateLimiter::class.java)
+    val logger = LoggerFactory.getLogger(this::class.java)
+
+    suspend fun create(
+      config: JsonObject,
+      vertx: Vertx,
+    ): RedisRateLimiter {
+      val instance = RedisRateLimiter(config, vertx)
+      instance.rateLimitScriptSha = instance.loadScript()
+      instance.backFillSha = instance.loadBackfill()
+      return instance
+    }
   }
-  override fun checkRateLimit(key: String): Future<Int> {
+
+  override fun checkRateLimit(key: String): Future<RateLimitCheck> {
     logger.debug("checking rate limit for key: $key")
-    val currentTimestamp = System.currentTimeMillis()
     return redis.evalsha(
-      listOf(rateLimitScriptSha, "1", key, algo, maxRequests.toString(), windowSize.toString(), currentTimestamp.toString()),
+      listOf(rateLimitScriptSha, "1", key, algo, maxRequests.toString(), windowSize.toString(), System.currentTimeMillis().toString()),
     )
+      .map { response ->
+        logger.debug("Rate limit check response: $response")
+        val allowed = response[0]?.toBoolean() ?: false
+        RateLimitCheck(key, maxRequests, allowed, response[1].toInteger(), nextExcecutionTime)
+      }
+  }
+
+  private suspend fun loadScript(): String {
+    val fileSystem = vertx.fileSystem()
+    return fileSystem.readFile("src/main/resources/lua/checkers.lua")
+      .compose { redis.script(listOf("LOAD", it.toString())) }
       .map {
-        logger.debug("rate limit check result: $it")
-        it.toInteger()
-      }
+        logger.debug("Rate limit script loaded: $it")
+        it.toString()
+      }.coAwait()
   }
 
-  override fun startConcurrent(key: String): Future<Int> {
-    val promise = Promise.promise<Int>()
-
-    redis.incr("$key:concurrent")
-      .onSuccess {
-        logger.debug("incremented key: $it")
-        promise.complete(it.toInteger())
-      }
-      .onFailure { error ->
-        promise.fail(RuntimeException("Failed to increment key: $key", error))
-      }
-    return promise.future()
+  private suspend fun loadBackfill(): String? {
+    val fileSystem = vertx.fileSystem()
+    return if (algo == "tokenBucket") {
+      logger.debug("Setting up rate limiter refill")
+      backFillSha =
+        fileSystem
+          .readFile("src/main/resources/lua/refill.lua")
+          .compose { redis.script(listOf("LOAD", it.toString())) }
+          .coAwait().toString()
+      runBackfill()
+        .onSuccess { response ->
+          if (response.type() == ResponseType.ERROR) {
+            logger.error("Error running backfill: $response")
+          } else {
+            logger.debug("Bucket refill completed")
+            nextExcecutionTime = System.currentTimeMillis() + windowSize.seconds.inWholeMilliseconds
+            vertx.setTimer(windowSize.seconds.inWholeMilliseconds) {
+              runBackfill()
+            }
+          }
+        }
+        .onFailure(logger::error)
+      redis.set(listOf("nextExecutionTime", nextExcecutionTime.toString())).coAwait()
+      backFillSha
+    } else {
+      null
+    }
   }
 
-  override fun endConcurrent(key: String): Future<Int> {
-    val promise = Promise.promise<Int>()
-    redis.decr("$key:concurrent")
-      .compose {
-        redis.expire(listOf("$key:concurrent", "1800")) // Set expiration to 30 minutes (1800 seconds)
-      }
-      .onSuccess {
-        logger.debug("decremented key: $it")
-        promise.complete(it.toInteger())
-      }
-      .onFailure { error ->
-        logger.error(error)
-        promise.fail(RuntimeException("Failed to decrement key: $key", error))
-      }
-    return promise.future()
-  }
+  private fun runBackfill() = redis.evalsha(listOf(backFillSha, "0", algo, maxRequests.toString()))
 }

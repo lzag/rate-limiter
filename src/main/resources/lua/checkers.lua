@@ -1,139 +1,159 @@
-
 -- Function to handle token bucket
-local function token_bucket(key, maxRequests)
-  local initialValue = maxRequests
-  local currentValue = redis.call("GET", key)
+local function token_bucket(key, maxRequests, windowSize)
+  local expiration = math.floor(windowSize / 1000)
+  local currentRemaining = tonumber(redis.call("GET", key))
+  local remaining = 0
 
-  if not currentValue then
-    redis.call("SET", key, initialValue)
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
-    return initialValue
+  if not currentRemaining then
+    remaining = maxRequests - 1
   else
-    local newValue = tonumber(currentValue) - 1
-    -- if we don't want negative values
-    if newValue < 0 then
-      newValue = 0
-    end
-    -- update the value
-    redis.call("SET", key, newValue)
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 ms)
-    return newValue
+    remaining = currentRemaining - 1
   end
+  if remaining >= 0 then
+    redis.call("SETEX", key, expiration, remaining)
+  end
+  return { remaining >= 0, remaining }
 end
 
 -- Function to handle timestamp bucket
 local function algo_token_bucket(key, maxRequests, windowSize, requestTimestamp)
   local values = redis.call("HMGET", key, "value", "timestamp")
-  local currentValue = values[1]
-  local oldTimestamp = values[2]
+  local currentValue = tonumber(values[1])
+  local oldTimestamp = tonumber(values[2])
+  local remaining = 0
 
   if not currentValue then
-    redis.call("HSET", key, "value", maxTokens - 1, "timestamp", requestTimestamp)
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 ms)
-    return maxRequests - 1
+    remaining = maxRequests - 1
   else
-    local elapsedTime = requestTimestamp - tonumber(oldTimestamp)
-    local tokensToAdd = math.floor(elapsedTime / windowSize * maxRequests)  -- Calculate tokens based on minute intervals
-    local newValue = math.min(tonumber(currentValue) + tokensToAdd, maxTokens) - 1
-
-    if newValue > 0 then
-      redis.call("HSET", key, "value", newValue, "timestamp", currentTimestamp)
-    end
-
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 ms)
-    return newValue
+    local elapsedTime = requestTimestamp - oldTimestamp
+    local tokensToAdd = math.floor(elapsedTime / windowSize) * maxRequests
+    remaining = math.min(currentValue + tokensToAdd, maxRequests) - 1
   end
+  if remaining >= 0 then
+    redis.call("HSET", key, "value", remaining, "timestamp", requestTimestamp)
+    redis.call("PEXPIRE", key, windowSize)
+  end
+  return { remaining >= 0, remaining }
+end
+
+-- Fractional token bucket
+local function fractional_token_bucket(key, maxRequests, windowSize, requestTimestamp)
+  local values = redis.call("HMGET", key, "value", "timestamp")
+  local currentValue = tonumber(values[1])
+  local oldTimestamp = tonumber(values[2])
+  local remaining = 0
+  local fraction = 60
+  local tokenFraction = math.floor(maxRequests / fraction)
+
+  if not currentValue then
+    remaining = tokenFraction
+  else
+    local elapsedTime = requestTimestamp - oldTimestamp
+    local tokensToAdd = math.floor(elapsedTime / (windowSize / fraction)) * tokenFraction
+    remaining = math.min(currentValue + tokensToAdd, tokenFraction) - 1
+  end
+  if remaining >= 0 then
+    redis.call("HSET", key, "value", remaining, "timestamp", requestTimestamp)
+    redis.call("PEXPIRE", key, windowSize * 10)
+  end
+  return { remaining >= 0, remaining }
 end
 
 -- Function to handle leaky bucket as a meter
 -- https://en.wikipedia.org/wiki/Leaky_bucket
 local function leaky_bucket(key, maxRequests, windowSize, requestTimestamp)
   local values = redis.call("HMGET", key, "value", "timestamp")
-  local currentValue = values[1]
-  local oldTimestamp = values[2]
+  local currentCount = tonumber(values[1])
+  local oldTimestamp = tonumber(values[2])
+  local count = 0
 
-  if not currentValue then
-    redis.call("HSET", key, "value", 0, "timestamp", requestTimestamp)
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
-    return initialValue
+  if not currentCount then
+    count = 1
   else
-    local elapsedTime = requestTimestamp - tonumber(oldTimestamp)
-    local tokensToRemove = math.floor(elapsedTime / windowSize * maxRequests)  -- Calculate tokens based on minute intervals
-    local newValue = math.min(tonumber(currentValue) - tokensToAdd, maxRequests) + 1
-
-    if newValue > maxRequests then
-      redis.call("HSET", key, "value", newValue, "timestamp", requestTimestamp)
-    end
-    redis.call("PEXPIRE", key, 1800000)  -- Set expiration to 30 minutes (1800000 milliseconds)
-    return newValue
+    local elapsedTime = requestTimestamp - oldTimestamp
+    local tokensToRemove = math.floor(elapsedTime / windowSize * maxRequests)
+    count = math.max(currentCount - tokensToRemove, 0) + 1
   end
+  if count <= maxRequests then
+    redis.call("HSET", key, "value", count, "timestamp", requestTimestamp)
+    redis.call("PEXPIRE", key, windowSize)
+  end
+  return { count <= maxRequests, maxRequests - count }
 end
 
 -- Function to handle fixed window counter
 local function fixed_window_counter(key, maxRequests, windowSize, requestTimestamp)
-  local currentValue = redis.call("GET", key)
   -- Divide the timestamp by the window size and get the full integer value
   local windowIndex = math.floor(requestTimestamp / windowSize)
   -- Concatenate the key with the window index
   local concatenatedKey = key .. ":" .. windowIndex
-  local currentValue = redis.call("GET", concatenatedKey)
+  local currentValue = tonumber(redis.call("GET", concatenatedKey))
+  local expiration = windowSize / 1000
+  local remaining = 0
 
   if not currentValue then
-    redis.call("SETEX", concatenatedKey, windowSize, maxRequests - 1)  -- Set expiration to window size
-    return maxRequests - 1
+    remaining = maxRequests - 1
   else
-    local newValue = tonumber(currentValue) - 1
-    if newValue < 0 then
-      return 0
-    end
-    redis.call("SETEX", concatenatedKey, windowSize, newValue)
-    return newValue
+    remaining = currentValue - 1
   end
+  if remaining >= 0 then
+    redis.call("SETEX", concatenatedKey, expiration, remaining)
+  end
+  return { remaining >= 0, remaining }
 end
 
 -- Function to handle sliding window log
 local function sliding_window_log(key, maxRequests, windowSize, requestTimestamp)
   -- Remove timestamps that are outside the current window
   redis.call("ZREMRANGEBYSCORE", key, 0, requestTimestamp - windowSize)
-  -- Get the number of requests in the current window
+  -- Get the number of requests in the current window before adding the new one
   local requestCount = redis.call("ZCARD", key)
-  if requestCount < maxRequests then
+  -- Calculate remaining requests before processing
+  local remaining = maxRequests - requestCount - 1
+  -- Only add the request if there’s capacity
+  if remaining >= 0 then
     -- Add the current request timestamp to the sorted set
     redis.call("ZADD", key, requestTimestamp, requestTimestamp)
-    -- Set expiration for the key to ensure old data is cleaned up
-    redis.call("EXPIRE", key, windowSize)
+    -- Set expiration in milliseconds
+    redis.call("PEXPIRE", key, windowSize)
+    -- Return remaining requests after adding (one less than before)
   end
-  return requestCount
+  return { remaining >= 0, remaining }
 end
 
 -- Function to handle sliding window counter
 local function sliding_window_counter(key, maxRequests, windowSize, requestTimestamp)
-  local timestampIndex = math.floor(requestTimestamp / (windowSize / 60))
-  redis.log(redis.LOG_WARNING, timestampIndex)
-  local countStartIndex = math.floor((requestTimestamp - windowSize) / (windowSize / 60))
-  redis.log(redis.LOG_WARNING, countStartIndex)
-  local currentValue = redis.call("HGET", key, timestampIndex)
+  local subWindowSize = windowSize / 60
+  local timestampIndex = math.floor(requestTimestamp / subWindowSize)
+  local countStartIndex = math.floor((requestTimestamp - windowSize) / subWindowSize)
 
-  if not currentValue then
-    redis.call("HSET", key, timestampIndex, 1)
-  else
-    redis.call("HSET", key, timestampIndex, 1 + currentValue)
-  end
-
-  -- calculate the window start
-  local startTimestamp = requestTimestamp - windowSize
-  local sum = 0
+  local remaining = maxRequests
+  local fieldsToDelete = {}
   local allFields = redis.call("HGETALL", key)
-
+  local currentIndexCount = 1
   for i = 1, #allFields, 2 do
     local timestamp = tonumber(allFields[i])
     local counter = tonumber(allFields[i + 1])
-
     if timestamp >= countStartIndex and timestamp <= timestampIndex then
-      sum = sum + counter
+      if timestamp == timestampIndex then
+        counter = counter + 1
+        currentIndexCount = counter
+      end
+      remaining = remaining - counter
+    elseif timestamp < countStartIndex then
+      table.insert(fieldsToDelete, timestamp)
     end
   end
-  return maxRequests - sum
+  -- Clean up old fields in one call
+  if #fieldsToDelete > 0 then
+    redis.call("HDEL", key, unpack(fieldsToDelete))
+    redis.log(redis.LOG_NOTICE, "Deleted fields: " .. table.concat(fieldsToDelete, ", "))
+  end
+
+  if remaining >= 0 then
+     redis.call("HSET", key, timestampIndex, currentIndexCount)
+  end
+  return { remaining >= 0, remaining }
 end
 
 -- Main logic to call the appropriate function based on input
@@ -142,12 +162,17 @@ local scriptType = ARGV[1]
 local maxRequests = tonumber(ARGV[2])
 -- window size is passed in secs vs millis
 local windowSize = tonumber(ARGV[3]) * 1000
+-- timestampInMs
 local requestTimestamp = tonumber(ARGV[4])
 
 if scriptType == "tokenBucket" then
-  return token_bucket(key, maxRequests)
-elseif scriptType == "timestampBucket" then
-  return timestamp_bucket(key, maxRequests, windowSize, requestTimestamp)
+  return token_bucket(key, maxRequests, windowSize)
+elseif scriptType == "algoTokenBucket" then
+  return algo_token_bucket(key, maxRequests, windowSize, requestTimestamp)
+elseif scriptType == "flatAlgoTokenBucket" then
+  return flat_algo_token_bucket(key, maxRequests, windowSize, requestTimestamp)
+elseif scriptType == "fractionalTokenBucket" then
+  return fractional_token_bucket(key, maxRequests, windowSize, requestTimestamp)
 elseif scriptType == "leakyBucket" then
   return leaky_bucket(key, maxRequests, windowSize, requestTimestamp)
 elseif scriptType == "fixedWindowCounter" then
@@ -159,4 +184,3 @@ elseif scriptType == "slidingWindowCounter" then
 else
   return redis.error_reply("Invalid script type")
 end
-
