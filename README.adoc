@@ -29,8 +29,8 @@ The main motivation is to learn rate limit concept and how to implement it in Ko
 
 Here are some of the concepts I learned while writing this program:
 
--
--
+- Lua scripting
+- Building reliable infrastructure and circuit breakers
 -
 
 
