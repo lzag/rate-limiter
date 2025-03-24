@@ -17,7 +17,7 @@ class RedisRateLimiter private constructor(
   private lateinit var rateLimitScriptSha: String
   private var backFillSha: String? = null
   private var nextExcecutionTime: Long? = null
-  private val algo: String = config.getString("algo")
+  private val algo: Algo = Algo.valueOf(config.getString("algo"))
   private val maxRequests: Int = config.getInteger("maxRequests")
   private val windowSize: Int = config.getInteger("interval")
   private val redis: RedisAPI = RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379"))
@@ -39,7 +39,7 @@ class RedisRateLimiter private constructor(
   override fun checkRateLimit(key: String): Future<RateLimitCheck> {
     logger.debug("checking rate limit for key: $key")
     return redis.evalsha(
-      listOf(rateLimitScriptSha, "1", key, algo, maxRequests.toString(), windowSize.toString(), System.currentTimeMillis().toString()),
+      listOf(rateLimitScriptSha, "1", key, algo.value, maxRequests.toString(), windowSize.toString(), System.currentTimeMillis().toString()),
     )
       .map { response ->
         logger.debug("Rate limit check response: $response")
@@ -60,7 +60,7 @@ class RedisRateLimiter private constructor(
 
   private suspend fun loadBackfill(): String? {
     val fileSystem = vertx.fileSystem()
-    return if (algo == "tokenBucket") {
+    return if (algo.needsBackfill) {
       logger.debug("Setting up rate limiter refill")
       backFillSha =
         fileSystem
@@ -87,5 +87,5 @@ class RedisRateLimiter private constructor(
     }
   }
 
-  private fun runBackfill() = redis.evalsha(listOf(backFillSha, "0", algo, maxRequests.toString()))
+  private fun runBackfill() = redis.evalsha(listOf(backFillSha, "0", algo.value, maxRequests.toString()))
 }

@@ -20,7 +20,7 @@ end
 local scriptType = ARGV[1]
 local maxRequests = tonumber(ARGV[2])
 
-if scriptType == "tokenBucket" then
+if scriptType == "TOKEN_BUCKET" then
   return token_bucket(maxRequests)
 else
   return redis.error_reply("Invalid script type")
