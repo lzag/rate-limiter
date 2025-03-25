@@ -11,7 +11,8 @@ import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.coAwait
 import io.vertx.redis.client.Redis
 import io.vertx.redis.client.RedisAPI
-import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class HttpVerticle : CoroutineVerticle(), CoroutineRouterSupport {
   companion object {
@@ -28,7 +29,7 @@ class HttpVerticle : CoroutineVerticle(), CoroutineRouterSupport {
     concurrentLimiter =
       RedisConcurrentRateLimiter(
         config.getJsonObject("rateLimiter").getInteger("maxConcurrentPerEndpoint"),
-        RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379")),
+        RedisAPI.api(Redis.createClient(vertx, "redis://${config.getJsonObject("rateLimiter").getString("redisHost")}:6379")),
       )
 
     breaker =

@@ -20,7 +20,7 @@ class RedisRateLimiter private constructor(
   private val algo: Algo = Algo.valueOf(config.getString("algo"))
   private val maxRequests: Int = config.getInteger("maxRequests")
   private val windowSize: Int = config.getInteger("interval")
-  private val redis: RedisAPI = RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379"))
+  private val redis: RedisAPI = RedisAPI.api(Redis.createClient(vertx, "redis://${config.getString("redisHost")}:6379"))
 
   companion object {
     val logger = LoggerFactory.getLogger(this::class.java)
@@ -29,6 +29,7 @@ class RedisRateLimiter private constructor(
       config: JsonObject,
       vertx: Vertx,
     ): RedisRateLimiter {
+      println(config)
       val instance = RedisRateLimiter(config, vertx)
       instance.rateLimitScriptSha = instance.loadScript()
       instance.backFillSha = instance.loadBackfill()
@@ -39,7 +40,15 @@ class RedisRateLimiter private constructor(
   override fun checkRateLimit(key: String): Future<RateLimitCheck> {
     logger.debug("checking rate limit for key: $key")
     return redis.evalsha(
-      listOf(rateLimitScriptSha, "1", key, algo.value, maxRequests.toString(), windowSize.toString(), System.currentTimeMillis().toString()),
+      listOf(
+        rateLimitScriptSha,
+        "1",
+        key,
+        algo.value,
+        maxRequests.toString(),
+        windowSize.toString(),
+        System.currentTimeMillis().toString(),
+      ),
     )
       .map { response ->
         logger.debug("Rate limit check response: $response")
@@ -50,7 +59,7 @@ class RedisRateLimiter private constructor(
 
   private suspend fun loadScript(): String {
     val fileSystem = vertx.fileSystem()
-    return fileSystem.readFile("src/main/resources/lua/checkers.lua")
+    return fileSystem.readFile("lua/checkers.lua")
       .compose { redis.script(listOf("LOAD", it.toString())) }
       .map {
         logger.debug("Rate limit script loaded: $it")
@@ -64,7 +73,7 @@ class RedisRateLimiter private constructor(
       logger.debug("Setting up rate limiter refill")
       backFillSha =
         fileSystem
-          .readFile("src/main/resources/lua/refill.lua")
+          .readFile("lua/refill.lua")
           .compose { redis.script(listOf("LOAD", it.toString())) }
           .coAwait().toString()
       runBackfill()

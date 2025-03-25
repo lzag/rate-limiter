@@ -1,15 +1,14 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.io.ByteArrayOutputStream
-import org.gradle.api.tasks.Exec
 
 plugins {
   kotlin("jvm") version "1.9.23"
   application
-  id("com.github.johnrengelman.shadow") version "7.1.2"
+  id("com.gradleup.shadow") version "8.3.6"
   id("org.jlleitschuh.gradle.ktlint") version "12.2.0"
   id("com.avast.gradle.docker-compose") version "0.17.12"
 }
@@ -65,9 +64,13 @@ tasks.withType<ShadowJar> {
   mergeServiceFiles()
 }
 
+val ci: String? by project
+
 tasks.withType<Test> {
-  dependsOn("composeUp")
-  finalizedBy("composeDown")
+  if (ci == null) {
+    dependsOn("composeUp")
+    finalizedBy("composeDown")
+  }
   dependsOn("runLuaTests")
   useJUnitPlatform()
   testLogging {
@@ -76,8 +79,8 @@ tasks.withType<Test> {
 }
 
 dockerCompose {
-    useComposeFiles.set(listOf("docker-compose.yml"))
-    startedServices.set(listOf("valkey"))
+  useComposeFiles.set(listOf("docker-compose.yml"))
+  startedServices.set(listOf("valkey"))
 }
 
 tasks.withType<JavaExec> {
