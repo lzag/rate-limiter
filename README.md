@@ -1,6 +1,6 @@
 # Rate Limiter
 
-Rate limiter written in Kotlin with the Vert.x framework. Uses Redis Lua script for rate limiting.
+Rate limiter written in Kotlin with the Vert.x framework. Uses Redis/Valkey Lua script for rate limiting.
 
 ### [Read the blog post](https://lukaszzagroba.com/rate-limiter-experiments)
 
@@ -12,11 +12,12 @@ Rate limiter written in Kotlin with the Vert.x framework. Uses Redis Lua script 
    - Docker (for running via Docker Compose)
 
 2. Clone the Repository:
+   ```
    git clone https://github.com/lzag/rate-limiter.git
    cd rate-limiter
+   ```
 
-3. Adjust the config:
-   Configuration can be adjusted in conf/conf.yaml
+3. Adjust the config in `conf/conf.yaml`
 
 4. Start the app with Docker:
     ```
@@ -25,12 +26,15 @@ Rate limiter written in Kotlin with the Vert.x framework. Uses Redis Lua script 
 
 ## Usage
 
-This project implements a rate limiter using different algorithms. The algorithms are located in checkers.lua. One algo needs a regular refill to be run by the app (token bucket).
+This project implements a rate limiter using different algorithms. The algorithms are located in `resources/lua/checkers.lua`. One algo needs a regular refill to be run by the app (token bucket).
 
 #### Development
 
 1. Run the Application Locally:
+   ```
    ./gradlew run
+
+   ```
 
 2. Test the Endpoint:
    Send HTTP requests to `http://localhost:8888/`, for example using httpie:
@@ -40,13 +44,13 @@ This project implements a rate limiter using different algorithms. The algorithm
 
 ## Motivation
 
-I built this project to explore rate limiting hands-on, using Kotlin and Vert.x, fueled by my fascination with reliable distributed systems that stay robust under load. The goal was to understand how rate limiters protect services, leveraging Redis Lua scripts to explore different limiting implementations. I wanted to see firsthand how they minimize network traffic by throttling requests at the source, reducing the load on downstream services. This project let me experiment with settings like max concurrent requests using Locust load testsing. Lua practice was a bonus—handy for tweaking my NeoVim setup and beyond. I also implemented a circuit breaker in case Redis instance goes down, to prevent cascading failures.
+I built this project to explore rate limiting hands-on, using Kotlin and Vert.x, fueled by my fascination with reliable distributed systems that stay robust under load. The goal was to understand how rate limiters protect services, leveraging Redis Lua scripts to explore different limiting implementations. I wanted to see firsthand how they minimize network traffic by throttling requests at the source, reducing the load on downstream services. This project let me experiment with settings like max concurrent requests using Locust load testing. Lua practice was a bonus - handy for tweaking my NeoVim setup and beyond. I also implemented a circuit breaker in case Redis instance goes down, to prevent cascading failures.
 
 ## Testing
 
 The project includes some basic tests (in `src/test/kotlin`) using JUnit 5 and Vert.x testing utilities as well as Lua rate-limiting algos tests (in `src/test/lua`).
 
-Run all tests (starts Redis in Docker automatically and runs Lua test as well):
+Run all tests (starts Valkey in Docker automatically and runs Lua test as well):
 ```
 ./gradlew test
 ```
