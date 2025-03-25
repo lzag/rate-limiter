@@ -1,10 +1,9 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.io.ByteArrayOutputStream
-import org.gradle.api.tasks.Exec
 
 plugins {
   kotlin("jvm") version "1.9.23"
@@ -80,8 +79,8 @@ tasks.withType<Test> {
 }
 
 dockerCompose {
-    useComposeFiles.set(listOf("docker-compose.yml"))
-    startedServices.set(listOf("valkey"))
+  useComposeFiles.set(listOf("docker-compose.yml"))
+  startedServices.set(listOf("valkey"))
 }
 
 tasks.withType<JavaExec> {

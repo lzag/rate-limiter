@@ -27,10 +27,10 @@ jobs:
       - name: Setup Lua
         uses: leafo/gh-actions-lua@v11
         with:
-          luaVersion: "5.4"  # Latest stable version, adjust as needed
+          luaVersion: "5.4"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run Tests
-        run: ./gradlew test -Pci --parallel --no-daemon
+        run: ./gradlew ktlintCheck test -Pci --parallel --no-daemon

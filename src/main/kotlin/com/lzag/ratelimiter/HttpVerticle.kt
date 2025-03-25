@@ -11,7 +11,8 @@ import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.coAwait
 import io.vertx.redis.client.Redis
 import io.vertx.redis.client.RedisAPI
-import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class HttpVerticle : CoroutineVerticle(), CoroutineRouterSupport {
   companion object {

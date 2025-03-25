@@ -40,7 +40,15 @@ class RedisRateLimiter private constructor(
   override fun checkRateLimit(key: String): Future<RateLimitCheck> {
     logger.debug("checking rate limit for key: $key")
     return redis.evalsha(
-      listOf(rateLimitScriptSha, "1", key, algo.value, maxRequests.toString(), windowSize.toString(), System.currentTimeMillis().toString()),
+      listOf(
+        rateLimitScriptSha,
+        "1",
+        key,
+        algo.value,
+        maxRequests.toString(),
+        windowSize.toString(),
+        System.currentTimeMillis().toString(),
+      ),
     )
       .map { response ->
         logger.debug("Rate limit check response: $response")
