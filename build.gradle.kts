@@ -65,9 +65,13 @@ tasks.withType<ShadowJar> {
   mergeServiceFiles()
 }
 
+val ci: String? by project
+
 tasks.withType<Test> {
-  dependsOn("composeUp")
-  finalizedBy("composeDown")
+  if (ci == null) {
+    dependsOn("composeUp")
+    finalizedBy("composeDown")
+  }
   dependsOn("runLuaTests")
   useJUnitPlatform()
   testLogging {

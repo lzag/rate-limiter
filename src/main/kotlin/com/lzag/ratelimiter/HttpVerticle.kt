@@ -28,7 +28,7 @@ class HttpVerticle : CoroutineVerticle(), CoroutineRouterSupport {
     concurrentLimiter =
       RedisConcurrentRateLimiter(
         config.getJsonObject("rateLimiter").getInteger("maxConcurrentPerEndpoint"),
-        RedisAPI.api(Redis.createClient(vertx, "redis://localhost:6379")),
+        RedisAPI.api(Redis.createClient(vertx, "redis://${config.getJsonObject("rateLimiter").getString("redisHost")}:6379")),
       )
 
     breaker =

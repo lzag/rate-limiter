@@ -29,6 +29,7 @@ class TestHttpVerticle {
   @ParameterizedTest
   @EnumSource(Algo::class)
   fun testRateLimiter(algo: Algo, vertx: Vertx, testContext: VertxTestContext) {
+
     val (max, interval, reps) = when (algo) {
       Algo.FRACTIONAL_TOKEN_BUCKET -> Triple(60, 60, 2)
       else -> Triple(3, 60, 4)
@@ -42,7 +43,7 @@ class TestHttpVerticle {
           .put("interval", interval)
           .put("maxConcurrentPerUser", 100)
           .put("maxConcurrentPerEndpoint", 100)
-          .put("httpVerticleInstances", 1)
+          .put("redisHost", "localhost")
       );
     vertx.deployVerticle(DeployerVerticle(), DeploymentOptions().setConfig(config))
       .onFailure { testContext.failNow(it) }

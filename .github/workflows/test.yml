@@ -8,11 +8,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-#    services:
-#      valkey:
-#        image: valkey/valkey:7.2-alpine
-#        ports:
-#          - 6379:6379
+    services:
+      valkey:
+        image: valkey/valkey:8-alpine
+        ports:
+          - 6379:6379
 
     steps:
       - name: Checkout code
@@ -33,4 +33,4 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run Tests
-        run: ./gradlew test --parallel --no-daemon
+        run: ./gradlew test -Pci --parallel --no-daemon
