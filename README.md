@@ -2,7 +2,7 @@
 
 Rate limiter written in Kotlin with the Vert.x framework. Uses Redis/Valkey Lua script for rate limiting.
 
-### [Read the blog post](https://lukaszzagroba.com/rate-limiter-experiments)
+### [Read the blog post](https://lukaszzagroba.com/rate-limiter-experiments)(coming soon)
 
 ## Installation
 
