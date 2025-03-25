@@ -1,8 +1,8 @@
-# Rate limiter
+# Rate Limiter
 
-Rate limiter written in Kotlin with Vertx framework
+Rate limiter written in Kotlin with the Vert.x framework. Uses Redis Lua script for rate limiting.
 
-### [View the demo](https://lukaszzagroba.com) | [Read the article](https://www.lukaszzagroba.com)
+### [Read the blog post](https://lukaszzagroba.com/rate-limiter-experiments)
 
 ## Table of Contents
 
@@ -10,51 +10,73 @@ Rate limiter written in Kotlin with Vertx framework
 - [Usage](#usage)
 - [Motivation](#motivation)
 - [Testing](#testing)
-- [Acknowlegdements & Link](#acknowledgements)
+- [Acknowledgements & Links](#acknowledgements--links)
 - [License](#license)
 
 ## Installation
 
+1. Prerequisites:
+   - Java 21
+   - Git (to clone the repository)
+   - Docker (for running via Docker Compose)
+
+2. Clone the Repository:
+   git clone https://github.com/lzag/rate-limiter.git
+   cd rate-limiter
+
+3. Adjust the config:
+   Configuration can be set in conf/conf.yaml
+
+4. Start the app with Docker:
+    ```
+    docker-compose up -d
+    ````
+
 ## Usage
+
+This project implements a rate limiter using different algorithms. The algorithms are located in checkers.lua. One algo needs a regular refill to be run by the app (token bucket).
 
 #### Development
 
-#### Deployment
+1. Run the Application Locally:
+   ./gradlew run
 
-### Terminal
+2. Test the Endpoint:
+   Send HTTP requests to `http://localhost:8888/`, for example using httpie:
+   ```
+   http :8888 X-User-Id:1`
+   ```
 
 ## Motivation
 
-The main motivation is to learn rate limit concept and how to implement it in Kotlin with Vertx framework.
+The main motivation is to learn the rate limit concept and how to implement it in Kotlin with the Vert.x framework.
 
 Here are some of the concepts I learned while writing this program:
-
-- Lua scripting
-- Building reliable infrastructure and circuit breakers
--
-
-
-And here are some articles I wrote based on those concepts:
-
-- [Sample](https://lukaszzagroba.com)
+- Lua Scripting: Used Redis Lua scripts to implement atomic operations for the token bucket algorithm.
+- Building Reliable Infrastructure and Circuit Breakers: Explored how rate limiting can act as a circuit breaker to prevent overload.
+- Asynchronous Programming with Vert.x: Leveraged Vert.x’s event-driven model for handling HTTP requests efficiently.
+- Testing with JUnit 5 and Vert.x: Implemented both unit and integration tests, including parameterized tests.
 
 ## Testing
 
-```bash
-# Run test suites
+The project includes some basic tests tests (in `src/test/kotlin`) using JUnit 5 and Vert.x testing utilities as well as Lua algos tests src/test/lua.
 
-# Run test suites and view coverage
+Run all tests (starts Redis in Docker automatically and runs Lua test as well)
+```
+./gradlew test
 ```
 
-## Links & Acknowledgements
+Key tests include:
+- Rate Limiting Test: Verifies that 5 concurrent requests succeed (200) and the 6th fails (503).
+- Parameterized Tests: Checks rate limiting behavior with varying numbers of requests.
 
-- [Token bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket#Algorithm)
-- [An alternative approach to rate limiting](https://www.figma.com/blog/an-alternative-approach-to-rate-limiting/)
+## Acknowledgements & Links
+
+- [Token Bucket Algorithm](https://en.wikipedia.org/wiki/Token_bucket#Algorithm)
+- [An Alternative Approach to Rate Limiting](https://www.figma.com/blog/an-alternative-approach-to-rate-limiting/)
+- [Vert.x Documentation](https://vertx.io/docs/)
+- [JUnit 5 Parameterized Tests](https://junit.org/junit5/docs/current/user-guide/#writing-tests-parameterized-tests)
 
 ## Author
 
 - [Lukasz Zagroba](https://lukaszzagroba.com)
-
-## License
-
-This project is open source and available under the [MIT License](LICENSE).

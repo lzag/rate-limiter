@@ -16,5 +16,6 @@ rateLimiter:
   # how many in-flight requests are allowed per endpoint
   maxConcurrentPerEndpoint: 800
 
+  redisHost: localhost
 # verticles count - making the system scalable
 httpVerticleInstances: 1

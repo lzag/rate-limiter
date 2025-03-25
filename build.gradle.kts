@@ -9,7 +9,7 @@ import org.gradle.api.tasks.Exec
 plugins {
   kotlin("jvm") version "1.9.23"
   application
-  id("com.github.johnrengelman.shadow") version "7.1.2"
+  id("com.gradleup.shadow") version "8.3.6"
   id("org.jlleitschuh.gradle.ktlint") version "12.2.0"
   id("com.avast.gradle.docker-compose") version "0.17.12"
 }

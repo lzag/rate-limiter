@@ -1,13 +1,19 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8888:8888"
+    depends_on:
+      - valkey
+    volumes:
+      - ./conf:/app/conf
+
   valkey:
     image: valkey/valkey:latest
-#    container_name: valkey_instance
     ports:
       - "6379:6379"
-#    environment:
-#      - VALKEY_CONFIG=/config/valkey.yaml
-#    volumes:
-#      - ./config:/config
 
   locust:
     image: locustio/locust:latest

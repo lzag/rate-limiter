@@ -16,13 +16,13 @@ class MainVerticle : AbstractVerticle() {
 
   override fun start(startPromise: Promise<Void>) {
     logger.debug("Starting MainVerticle")
-    val yamlStore =
+    val mainConf =
       ConfigStoreOptions()
         .setType("file")
         .setFormat("yaml")
         .setConfig(JsonObject().put("path", "conf/conf.yaml"))
 
-    val options = ConfigRetrieverOptions().addStore(yamlStore).setScanPeriod(10000)
+    val options = ConfigRetrieverOptions().addStore(mainConf).setScanPeriod(10000)
     val retriever = ConfigRetriever.create(vertx, options)
     retriever.listen { change ->
       vertx.eventBus().send("redeploy", change.newConfiguration)
